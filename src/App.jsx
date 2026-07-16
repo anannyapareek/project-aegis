@@ -451,9 +451,11 @@ export default function App() {
   const [auditLogs, setAuditLogs] = useState([]);
 
   useEffect(() => {
-    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
-    const wsUrl = apiUrl.replace(/^http/, "ws") + "/ws/stream";
-    const ws = new WebSocket(wsUrl);
+    const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+    const WS_URL = BACKEND_URL.startsWith("https")
+      ? BACKEND_URL.replace("https", "wss") + "/ws/stream"
+      : BACKEND_URL.replace("http", "ws") + "/ws/stream";
+    const ws = new WebSocket(WS_URL);
     
     ws.onmessage = (e) => {
       try {
