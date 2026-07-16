@@ -22,6 +22,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+def read_root():
+    return {"status": "online", "message": "Aegis Backend is running successfully!"}
+
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Load Models
