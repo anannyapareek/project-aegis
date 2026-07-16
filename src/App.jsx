@@ -29,19 +29,7 @@ const behavioralData = [
   { subject: 'Time Access', A: 85, B: 45, fullMark: 150 },
 ];
 
-// Dynamic Users Data from Baseline
-import employeeBaselines from '../employee_baselines.json';
-
-const mockUsers = Object.entries(employeeBaselines).map(([emp_id, info]) => ({
-  id: emp_id,
-  name: `User ${emp_id}`,
-  role: info.role.includes('Admin') ? 'Admin' : 'Employee',
-  dept: info.role.replace('_', ' '),
-  risk: emp_id === 'EMP042' || emp_id === 'ADM_422' || emp_id === 'EMP025' ? 98 : 0,
-  status: 'Active',
-  activity: 'Awaiting telemetry...',
-  pendingRequest: info.role.includes('Admin') ? 'Core_Vault_01' : null
-}));
+// Dynamic Users Data initialized empty, filled by websocket
 
 // Soft glass container
 const GlassCard = ({ children, className = "" }) => (
@@ -438,7 +426,7 @@ export default function App() {
   const [activePage, setActivePage] = useState('dashboard');
   const [deleteAttempt, setDeleteAttempt] = useState(null);
 
-  const [usersList, setUsersList] = useState(mockUsers);
+  const [usersList, setUsersList] = useState([]);
   const [telemetryData, setTelemetryData] = useState([]);
   const [mainThreatKilled, setMainThreatKilled] = useState(false);
   
@@ -532,19 +520,32 @@ export default function App() {
           status: data.final_risk_score >= 25 ? 'warning' : 'success'
         }, ...prev].slice(0, 5));
 
-        // Update specific user risk in the User Database if it matches
+        // Update specific user risk in the User Database or add if missing
         if (data.event.employee_id) {
-          setUsersList(prevList => prevList.map(u => {
-            if (u.id === data.event.employee_id) {
-              return { 
+          setUsersList(prevList => {
+            const riskScore = data.final_risk_score >= 25 ? 100 : data.final_risk_score;
+            const isCritical = data.final_risk_score >= 25;
+            const activity = isCritical ? 'Honeytoken Tripped - Critical Threat' : (data.final_risk_score >= 35 ? data.reasons[0] || 'Anomalous Activity' : 'Normal Telemetry');
+            
+            if (prevList.some(u => u.id === data.event.employee_id)) {
+              return prevList.map(u => u.id === data.event.employee_id ? { 
                 ...u, 
-                risk: data.final_risk_score >= 25 ? 100 : data.final_risk_score, 
-                status: data.final_risk_score >= 25 ? 'Critical' : u.status,
-                activity: data.final_risk_score >= 25 ? 'Honeytoken Tripped - Critical Threat' : (data.final_risk_score >= 35 ? data.reasons[0] || 'Anomalous Activity' : 'Normal Telemetry')
-              };
+                risk: riskScore, 
+                status: isCritical ? 'Critical' : u.status, 
+                activity 
+              } : u);
             }
-            return u;
-          }));
+            return [{
+              id: data.event.employee_id,
+              name: `User ${data.event.employee_id}`,
+              role: 'Employee',
+              dept: 'General',
+              risk: riskScore,
+              status: isCritical ? 'Critical' : 'Active',
+              activity,
+              pendingRequest: null
+            }, ...prevList];
+          });
         }
 
         // Push to active alerts if risk > 25
